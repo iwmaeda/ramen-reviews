@@ -1,9 +1,7 @@
-# Collect sake reviews from webpage or twitter.
+# Collect ramen reviews from webpage or twitter.
 
 ## Environment
 
-- OS
-  - Windows 10
 - Language
   - Python3.6.2
 - Dependencies
@@ -13,6 +11,7 @@
   - scikit-learn 0.19.0
   - requests 2.14.2
   - pip:
+    - beautifulsoup4
     - requests-oauthlib 0.8.0
 - Version Control Systems
   - Git
