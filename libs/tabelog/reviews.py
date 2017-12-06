@@ -1,6 +1,8 @@
+import math
 import time
 
 import numpy as np
+import pandas as pd
 import requests
 from bs4 import BeautifulSoup
 
@@ -8,6 +10,7 @@ from bs4 import BeautifulSoup
 class TabelogReviews(object):
     def __init__(self):
         self.ok = False
+        self.restaurant_name = 'unknown'
         self.reviewer_url = 'unknown'
         self.review_ratings = {'dinner_overall': np.nan, 'dinner_taste': np.nan, 'dinner_service': np.nan,
                                'dinner_mood': np.nan, 'dinner_cp': np.nan, 'dinner_drink': np.nan,
@@ -15,10 +18,14 @@ class TabelogReviews(object):
                                'lunch_mood': np.nan, 'lunch_cp': np.nan, 'lunch_drink': np.nan}
         self.review_title = 'unknown'
         self.review_text = 'unknown'
-        self.review_contents = ['reviewer_url', 'review_ratings', 'review_title', 'review_text']
+        self.review_contents = ['restaurant_name', 'reviewer_url',
+                                'review_ratings', 'review_title', 'review_text']
 
-    def input_retrieved_reviews(self, reviewer_url=None, review_ratings=None, review_title=None, review_text=None):
+    def input_retrieved_reviews(self, restaurant_name=None, reviewer_url=None,
+                                review_ratings=None, review_title=None, review_text=None):
         self.ok = True
+        if restaurant_name is not None:
+            self.restaurant_name = restaurant_name
         if reviewer_url is not None:
             self.reviewer_url = reviewer_url
         if review_ratings is not None:
@@ -40,7 +47,7 @@ class TabelogReviews(object):
         for c in contents:
             if hasattr(self, c):
                 if c == 'review_ratings':
-                    dict_reviews += self.review_ratings
+                    dict_reviews.update(self.review_ratings)
                 else:
                     dict_reviews[c] = getattr(self, c)
         return dict_reviews
@@ -57,6 +64,9 @@ def resp_to_soup(resp):
 def get_review_text(resp):
     if resp.ok is True:
         soup = resp_to_soup(resp)
+
+        # Restaurant name
+        restaurant_name = soup.find('div', class_='rdheader-rstname').find('span', property='').get_text(strip=True)
 
         # Reviewer URL
         tag_url = soup.find('p', class_='rvw-item__rvwr-name auth-mobile')
@@ -113,23 +123,23 @@ def get_review_text(resp):
             review_text = 'unknown'
 
         return TabelogReviews().input_retrieved_reviews(
-            reviewer_url=reviewer_url, review_ratings=review_ratings,
+            restaurant_name=restaurant_name, reviewer_url=reviewer_url, review_ratings=review_ratings,
             review_title=review_title, review_text=review_text)
     else:
         return TabelogReviews()
 
 
-def get_review_pages_from_restaurant_page(url, interval=1):
+def get_review_pages(url, interval=1):
     url_review_page = url + 'dtlrvwlst/'
 
-    list_review_pages = []
+    review_pages = []
     while True:
         resp = requests.get(url_review_page)
         if resp.ok is True:
             soup = resp_to_soup(resp)
 
-            list_review_pages += ['https://tabelog.com' + item['href'] for item
-                                  in soup.find_all('a', class_='rvw-item__title-target')]
+            review_pages += ['https://tabelog.com' + item['href'] for item
+                             in soup.find_all('a', class_='rvw-item__title-target')]
 
             # Get next url
             if soup.find('a', class_='c-pagination__arrow c-pagination__arrow--next') is not None:
@@ -143,23 +153,37 @@ def get_review_pages_from_restaurant_page(url, interval=1):
         # Sleep
         time.sleep(interval)
 
-    return list_review_pages
+    return review_pages
 
 
-def get_restaurant_pages_from_search_result(url, interval=1):
-    list_restaurant_pages = []
+def get_restaurant_pages(url, interval=1, display_progress=False):
+    restaurant_pages = pd.DataFrame(columns=['Restaurant_name', 'Restaurant_url'])
+    page = 1
+    max_page = '?'
+    restaurants_in_one_page = 20    # Can be obtained ?
     while True:
         resp = requests.get(url)
         if resp.ok is True:
             soup = resp_to_soup(resp)
 
-            list_restaurant_pages += [item['href'] for item
-                                      in soup.find_all('a', class_='list-rst__rst-name-target cpy-rst-name')]
+            # Progress
+            if page == 1:
+                # Get max_page
+                max_page = math.ceil(float(soup.find('div', class_='list-condition').find(
+                    'span', class_='list-condition__count').get_text(strip=True)) / restaurants_in_one_page)
+            if display_progress:
+                print('Page: %s / %s' % (page, max_page))
+
+            tags = soup.find_all('a', class_='list-rst__rst-name-target cpy-rst-name')
+            restaurant_names = [tag.get_text(strip=True) for tag in tags]
+            restaurant_urls = [tag['href'] for tag in tags]
+            restaurant_pages = restaurant_pages.append(pd.DataFrame(
+                {'Restaurant_name': restaurant_names, 'Restaurant_url': restaurant_urls}, index=np.arange(len(tags))),
+                ignore_index=True)
 
             # Get next url
             if soup.find('a', class_='c-pagination__arrow c-pagination__arrow--next') is not None:
-                url = 'https://tabelog.com' + soup.find(
-                    'a', class_='c-pagination__arrow c-pagination__arrow--next')['href']
+                url = soup.find('a', class_='c-pagination__arrow c-pagination__arrow--next')['href']
             else:
                 break
         else:
@@ -167,5 +191,6 @@ def get_restaurant_pages_from_search_result(url, interval=1):
 
         # Sleep
         time.sleep(interval)
+        page += 1
 
-    return list_restaurant_pages
+    return restaurant_pages
