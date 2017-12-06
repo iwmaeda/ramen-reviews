@@ -1,5 +1,6 @@
-from .reviews import get_restaurant_pages_from_search_result, get_review_pages_from_restaurant_page, get_review_text
+from .reviews import TabelogReviews, get_restaurant_pages, get_review_pages, get_review_text
 
-__all__ = ['get_restaurant_pages_from_search_result',
-           'get_review_pages_from_restaurant_page',
+__all__ = ['TabelogReviews',
+           'get_restaurant_pages',
+           'get_review_pages',
            'get_review_text']
