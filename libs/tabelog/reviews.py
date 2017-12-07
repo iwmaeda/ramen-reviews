@@ -85,8 +85,11 @@ def get_review_text(resp):
             for r in list_ratings:
                 if r.find('span', class_='c-rating__time c-rating__time--dinner') is not None:
                     # Dinner ratings
-                    review_ratings['dinner_overall'] = float(r.find(
-                        'b', class_='c-rating__val c-rating__val--strong').get_text(strip=True))
+                    dinner_overall = r.find('b', class_='c-rating__val c-rating__val--strong').get_text(strip=True)
+                    if dinner_overall == '-':
+                        review_ratings['dinner_overall'] = np.nan
+                    else:
+                        review_ratings['dinner_overall'] = float(dinner_overall)
                     category_ratings = [np.nan if v.get_text(strip=True) == '-' else float(v.get_text(strip=True))
                                         for v in r.find_all('strong', class_='rvw-item__ratings-dtlscore-score')]
                     review_ratings['dinner_taste'] = category_ratings[0]
@@ -96,8 +99,11 @@ def get_review_text(resp):
                     review_ratings['dinner_drink'] = category_ratings[4]
                 elif r.find('span', class_='c-rating__time c-rating__time--lunch') is not None:
                     # Lunch ratings
-                    review_ratings['lunch_overall'] = float(r.find(
-                        'b', class_='c-rating__val c-rating__val--strong').get_text(strip=True))
+                    lunch_overall = r.find('b', class_='c-rating__val c-rating__val--strong').get_text(strip=True)
+                    if lunch_overall == '-':
+                        review_ratings['lunch_overall'] = np.nan
+                    else:
+                        review_ratings['lunch_overall'] = float(lunch_overall)
                     category_ratings = [np.nan if v.get_text(strip=True) == '-' else float(v.get_text(strip=True))
                                         for v in r.find_all('strong', class_='rvw-item__ratings-dtlscore-score')]
                     review_ratings['lunch_taste'] = category_ratings[0]
